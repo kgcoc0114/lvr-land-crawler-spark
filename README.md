@@ -18,12 +18,12 @@
   
   1. 
     ```bash
-    python lvr-land-crawler-spark/land_data_crawler.py`
+      python lvr-land-crawler-spark/land_data_crawler.py
     ```
   2. 
     ```bash
       spark-submit --py-files lvr-land-crawler-spark/dependency.zip lvr-land-crawler-spark/land_data_etl.py
-      ```
+    ```
 
 * 若於`local`執行且`local`未有Spark環境，請加上
   ```python

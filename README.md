@@ -14,17 +14,22 @@
   |tools/files.py|檔案工具|
   |tools/sp_gadget.py|spark相關工具|
 
-* 若於`local`執行且`local`未有spark環境，請加上
+* 執行步驟
+  
+  1. 
+    ```bash
+    python lvr-land-crawler-spark/land_data_crawler.py`
+    ```
+  2. 
+    ```bash
+      spark-submit --py-files lvr-land-crawler-spark/dependency.zip lvr-land-crawler-spark/land_data_etl.py
+      ```
+
+* 若於`local`執行且`local`未有Spark環境，請加上
   ```python
   import findspark
   findspark.init()
   ```
-
-* ```bash
-    spark-submit --py-files lvr-land-crawler-spark/dependency.zip lvr-land-crawler-spark/land_data_etl_rdd.py
-    ```
-
-
 * dependency.zip
   * 因有import 自定義 module
   * 需匯出zip
@@ -32,3 +37,4 @@
     cd lvr-land-crawler-spark
     sudo zip dependency.zip tools/*
     ```
+

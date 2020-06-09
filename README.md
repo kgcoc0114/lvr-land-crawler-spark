@@ -1,11 +1,11 @@
-# Living Land DataFeed Crawler
+# lvr Land DataFeed Crawler
 
 * [內政部:::不動產交易實價查詢服務網](https://plvr.land.moi.gov.tw/DownloadOpenData)
 
-* File Descrption
+* File Description
   
   |File Name|Description|
-  |--------|-------|
+  |---------|-----------|
   |land_data_crawler.py|爬取不動產相關datafeed|
   |land_data_etl.py|處理不動產datafeed|
   |land_data_etl_rdd.py|處理不動產datafeed(rdd)|

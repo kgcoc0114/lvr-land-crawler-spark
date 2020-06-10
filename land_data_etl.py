@@ -103,7 +103,7 @@ def main():
         sdf_list.append(sdf)
     
     # 合併dataframe
-    sdf = sdf_union(sdf_list)i
+    sdf = sdf_union(sdf_list)
     # 格式處理
     sdf = sdf_trans(sdf)
     # 條件篩選

@@ -66,6 +66,7 @@ class LandData(object):
     def add_city_col(self, file_name, src_path, target_path):
         df = pd.read_csv(src_path)
         df["縣市"] = self.file_city["{}".format(file_name)]
+        df["備註"] = df["備註"].replace({',':''}, regex=True)
         df.to_csv(target_path, index=False, encoding='utf_8_sig')
 
     # 將需要分析檔案移到input中

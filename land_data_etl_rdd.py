@@ -38,9 +38,9 @@ def main():
     rdd = rdd.filter(lambda row : row not in junk).map(lambda line: line.split(","))
     # 篩選條件
     rdd = rdd.filter(lambda row : sp_gadget.number_trans(row[header.index(u"總樓層數")].split(u"層")[0]) >= 13 and u"住宅大樓" in row[header.index(u"建物型態")] and u"住家用" in row[header.index(u"主要用途")])
-    print(rdd.collect())
+
     # 取出結果欄位
-    rdd_trans = rdd.map(lambda row: (row[-1], str2datetime(row[header.index(u"交易年月日")]), row[header.index(u"鄉鎮市區")], row[header.index(u"建物型態")]))
+    rdd_trans = rdd.map(lambda row: (row[header.index(u"縣市")], str2datetime(row[header.index(u"交易年月日")]), row[header.index(u"鄉鎮市區")], row[header.index(u"建物型態")]))
 
     # rdd 轉換成 dataframe
     sdf = sqlContext.createDataFrame(rdd_trans, ['city', 'date', 'district', 'building_state'])

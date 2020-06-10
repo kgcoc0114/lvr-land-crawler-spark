@@ -27,19 +27,21 @@ import tools.sp_gadget as sp_gadget
 
 _SPARK_PATH = '/'.join(os.path.abspath(__file__).replace('\\','/').split('/')[1:-1])
 _FILES = ["a_lvr_land_a.csv", "b_lvr_land_a.csv", "e_lvr_land_a.csv", "f_lvr_land_a.csv", "h_lvr_land_a.csv"]
-
 _OUTPUT_FILE_NUM = 2
 
+# 字串轉換日期
 def str2datetime(date_str):
     year = int(date_str[0:3]) + 1911
     month = date_str[3:5]
     day = date_str[5:]
     return times.str2datetime("{}-{}-{}".format(year,month,day))
 
+# 讀檔
 def read_file_spark(sqlc, file_path, schema):
     sdf = sqlc.read.format('com.databricks.spark.csv').options(header='False', inferschema='False').schema(schema).load(file_path)
     return sdf
 
+# 格式轉換-中文樓層轉換, 日期轉換
 def sdf_trans(sdf):
     floor_trims = F.udf(sp_gadget.number_trans, IntegerType())
     str2date = F.udf(str2datetime, DateType())
@@ -48,13 +50,16 @@ def sdf_trans(sdf):
     sdf_final = sdf.filter("district is not NULL")
     return sdf_final
 
+# 合併dataframe
 def sdf_union(*sdf):
     return reduce(DataFrame.unionAll, *sdf)
 
+# 條件篩選
 def sdf_filter(sdf, conditions):
     return sdf.filter(conditions)
 
 def main():
+    # schema
     data_schema = StructType([
             StructField('district', StringType(), True), 
             StructField('trans_type', StringType(), True),
@@ -85,25 +90,32 @@ def main():
             StructField('note', StringType(), True),
             StructField('serial_num', StringType(), True),
             StructField('city', StringType(), True)])
-    
+    # 宣告
     sc = SparkContext()
     sqlContext = SQLContext(sc)
 
     sdf_list = []
-
+    
+    # 讀檔
     for i in _FILES:
         input_data = "file:///{}/input/{}".format(_SPARK_PATH,i)
         sdf = read_file_spark(sqlContext, input_data, data_schema)
         sdf_list.append(sdf)
     
-    sdf = sdf_union(sdf_list)
+    # 合併dataframe
+    sdf = sdf_union(sdf_list)i
+    # 格式處理
     sdf = sdf_trans(sdf)
+    # 條件篩選
     sdf = sdf_filter(sdf, u"main_use ='住家用' AND building_state like '住宅大樓%' and total_floor_trans >= 13")
+    # 匯出json
     sdf = sp_gadget.result_json_schema(sdf)
     output_path="/{}/output".format(_SPARK_PATH)
-
+    # 生成output資料夾
     sp_gadget.create_result_dir(output_path)
+    # 匯出結果
     sp_gadget.export_results(sdf, "file://{}".format(output_path), _OUTPUT_FILE_NUM)
+    # 修改檔名
     sp_gadget.trans_result(output_path, _OUTPUT_FILE_NUM)
 
 

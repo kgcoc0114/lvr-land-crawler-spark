@@ -24,12 +24,15 @@ class LandData(object):
         self.zip_file = ""
         self.file_city = {}
         self.land_dir = "{}/land_data".format(_BASE_PATH)
-
+    
+    # 判斷資料夾
     def check_land_dir(self):
         files.remove_dir(dir_path=self.land_dir)
         files.dynamic_create_dir(self.land_dir)
     
+    # 取得資料
     def get_land_datafeed(self, previous_data=None, year=None, season=None):
+        # 當期/非當期/季
         if previous_data and not (year and season):
             url = "https://plvr.land.moi.gov.tw/DownloadHistory?type=history&fileName={}".format(previous_data)
         elif not previous_data and (year and season):

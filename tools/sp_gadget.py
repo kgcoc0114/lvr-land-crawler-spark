@@ -31,13 +31,16 @@ def number_trans(ch_num):
         return 0
 
 # 結果json schema
-def result_json_schema(sdf):
+def result_json_schema(sdf, distinct_judge=False):
+    if distinct_judge:
+        sdf = sdf.select(
+            "city",
+            "date",
+            "district",
+            "building_state"
+        ).distinct()
+    
     sdf = sdf.select(
-        "city",
-        "date",
-        "district",
-        "building_state"
-    ).distinct().select(
         "city",
         "date",
         F.struct(

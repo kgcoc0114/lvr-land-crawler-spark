@@ -4,26 +4,30 @@ Name: land_data_crawler.py
 Desc: land crawler 
 Note:
 """
-import tools.times as times
-import tools.files as files
-import tools.request as request
+import sys
 import os
 from pathlib import Path
 from urllib import parse
 import shutil
 import pandas as pd
+
+import tools.times as times
+import tools.files as files
+import tools.request as request
+
 _BASE_PATH = '/'.join(os.path.abspath(__file__).replace('\\','/').split('/')[:-1])
 _CURRENT_DATE = times.get_today()
 _FILES = ["a_lvr_land_a.csv", "b_lvr_land_a.csv", "e_lvr_land_a.csv", "f_lvr_land_a.csv", "h_lvr_land_a.csv"]
 
+    
 class LandData(object):
-    def __init__(self, *args):
-        super(LandData, self).__init__(*args)
+    def __init__(self, file_list):
         self.upzip_target_dir = ""
         self.zip_file_path = ""
         self.zip_file = ""
         self.file_city = {}
         self.land_dir = "{}/land_data".format(_BASE_PATH)
+        self.file_list = file_list
     
     # 判斷資料夾
     def check_land_dir(self):
@@ -31,11 +35,11 @@ class LandData(object):
         files.dynamic_create_dir(self.land_dir)
     
     # 取得資料
-    def get_land_datafeed(self, previous_data=None, year=None, season=None):
+    def get_land_datafeed(self, pub_date=None, year=None, season=None):
         # 當期/非當期/季
-        if previous_data and not (year and season):
-            url = "https://plvr.land.moi.gov.tw/DownloadHistory?type=history&fileName={}".format(previous_data)
-        elif not previous_data and (year and season):
+        if pub_date and not (year and season):
+            url = "https://plvr.land.moi.gov.tw/DownloadHistory?type=history&fileName={}".format(pub_date)
+        elif not pub_date and (year and season):
             url = "https://plvr.land.moi.gov.tw//DownloadSeason?season={}S{}&type=zip&fileName=lvr_landcsv.zip".format(year, season)
         else:
             url = "https://plvr.land.moi.gov.tw//Download?type=zip&fileName=lvr_landcsv.zip"
@@ -62,7 +66,7 @@ class LandData(object):
         with open(Path("{}/land_data/lvr_landcsv/manifest.csv".format(_BASE_PATH)), 'r', encoding="utf-8") as f:
             for f in f.readlines():
                 tmp_split = f.split(',')
-                if tmp_split[0] in _FILES:
+                if tmp_split[0] in self.file_list:
                     self.file_city["{}".format(tmp_split[0])] = tmp_split[2][0:3]
     
     # 標記城市
@@ -86,15 +90,44 @@ class LandData(object):
         else:
             files.create_dir(input_path)
 
-        for i in _FILES:
+        for i in self.file_list:
             self.add_city_col(i, "{}/{}".format(upzip_target_dir, i), 
                         "{}/input/{}".format(_BASE_PATH,i))
 
-def main():
-    land_data = LandData()
-    land_data.get_land_datafeed(year=108, season=2)
+def main(argv):
+    crawler_mode = ""
+    year = ""
+    season = ""
+    pub_date = ""
+    if argv[1] == "hist_date":
+        crawler_mode = "hist_date"
+        pub_date = argv[2]
+    elif argv[1] == "hist_season":
+        if "S" in argv[2]:
+            crawler_mode = "hist_season"
+            tmp_s = argv[2].split("S")
+            year = tmp_s[0]
+            season = int(tmp_s[1])
+    elif argv[1] == "curr":
+        crawler_mode = "curr"
+    
+    file_list = list(filter(lambda f: ".csv" in f or ".CSV" in f, argv))
+    if not file_list:
+        file_list = _FILES
+    else:
+        file_list = file_list[0].split(",")
+
+    land_data = LandData(file_list)
+    if crawler_mode == 'curr':
+        land_data.get_land_datafeed()
+    elif crawler_mode == 'hist_season':
+        land_data.get_land_datafeed(year=year, season=season)
+    elif crawler_mode == 'hist_date':
+        print(crawler_mode)
+        land_data.get_land_datafeed(pub_date=pub_date)
+
     land_data.get_file_city()
     land_data.move_files(upzip_target_dir="land_data/lvr_landcsv")
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)

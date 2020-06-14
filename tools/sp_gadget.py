@@ -84,12 +84,6 @@ def export_results(sdf, output_path, output_file_num):
         else:
             sdf_list[i].coalesce(1).write.json("{}/result{}".format(output_path, i+1))
 
-# 匯出檔案 rdd
-def export_results_rdd(sdf, output_path, output_file_num):
-    sdf_list = sdf.randomSplit([0.5, 0.5], 1)
-    for i in range(output_file_num):
-        sdf_list[i].coalesce(1).write.json("{}/result{}".format(output_path, i+1))
-
 # 重新命名
 def trans_result(output_path, output_file_num):
     for i in range(output_file_num):

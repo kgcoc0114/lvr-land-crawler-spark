@@ -23,6 +23,24 @@ def str2datetime(date_str):
     day = date_str[5:]
     return "{}-{}-{}".format(year,month,day)
 
+def events_trans(x):
+    tmp_list = []
+    for i in x:
+        tmp_dict = {}
+        tmp_dict['district'] = i[2]
+        tmp_dict['building_state'] = i[3]
+        tmp_list.append(tmp_dict)
+    return tmp_list
+
+def time_slots_trans(x):
+    tmp_list = []
+    for i in x:
+        tmp_dict = {}
+        tmp_dict['date'] = i[1]
+        tmp_dict['events'] = i[2]
+        tmp_list.append(tmp_dict)
+    return tmp_list
+
 def main():
     # 宣告
     sc = SparkContext()
@@ -41,6 +59,18 @@ def main():
 
     # 取出結果欄位
     rdd_trans = rdd.map(lambda row: (row[header.index(u"縣市")], str2datetime(row[header.index(u"交易年月日")]), row[header.index(u"鄉鎮市區")], row[header.index(u"建物型態")]))
+    # rdd ------
+    # import json
+    # # (city, date)
+    # rdd_trans = rdd_trans.groupBy(lambda x: (x[0], x[1])).map(lambda x : (x[0], list(x[1])))
+    # # city, date, events
+    # rdd_trans = rdd_trans.map(lambda x : (x[0][0],x[0][1], events_trans(x[1]))).sortBy(lambda x: x[1])
+    # # sortBy date
+    # rdd_trans = rdd_trans.sortBy(lambda x: x[1])
+    # # city
+    # rdd_trans = rdd_trans.groupBy(lambda x: x[0]).map(lambda x : (x[0], list(x[1])))
+    # sdf = rdd_trans.map(lambda x : json.dumps({'city':x[0], 'time_slots':time_slots_trans(x[1])}, ensure_ascii=False))
+    # rdd ------
 
     # rdd 轉換成 dataframe
     sdf = sqlContext.createDataFrame(rdd_trans, ['city', 'date', 'district', 'building_state'])

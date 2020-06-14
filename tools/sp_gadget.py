@@ -4,7 +4,7 @@ Name: tools/sp_gadget.py
 Desc: spark functions
 Note:
 """
-
+from pyspark.rdd import RDD
 import pyspark.sql.functions as F
 import tools.files as files
 
@@ -15,7 +15,7 @@ def number_trans(ch_num):
         digit = {u'一': 1, u'二': 2, u'三': 3, u'四': 4, u'五': 5, u'六': 6, u'七': 7, u'八': 8, u'九': 9}
         num = 0
         if ch_num:
-            idx_b, idx_s = ch_num.find('百'), ch_num.find('十')
+            idx_b, idx_s = ch_num.find(u'百'), ch_num.find(u'十')
         
         if idx_b != -1:
             num  = num + digit[ch_num[idx_b - 1:idx_b]] * 100
@@ -74,6 +74,18 @@ def create_result_dir(output_path):
 
 # 匯出檔案
 def export_results(sdf, output_path, output_file_num):
+    rdd_type = False
+    if isinstance(sdf, RDD):
+        rdd_type = True
+    sdf_list = sdf.randomSplit([0.5, 0.5], 1)
+    for i in range(output_file_num):
+        if rdd_type:
+            sdf_list[i].coalesce(1).saveAsTextFile("{}/result{}".format(output_path, i+1))
+        else:
+            sdf_list[i].coalesce(1).write.json("{}/result{}".format(output_path, i+1))
+
+# 匯出檔案 rdd
+def export_results_rdd(sdf, output_path, output_file_num):
     sdf_list = sdf.randomSplit([0.5, 0.5], 1)
     for i in range(output_file_num):
         sdf_list[i].coalesce(1).write.json("{}/result{}".format(output_path, i+1))
@@ -82,7 +94,7 @@ def export_results(sdf, output_path, output_file_num):
 def trans_result(output_path, output_file_num):
     for i in range(output_file_num):
         file_list = files.get_all_files("{}/result{}".format(output_path, i+1))
-        json_name = list(filter(lambda x: 'json' in x and '.crc' not in x, file_list))[0]
+        json_name = list(filter(lambda x: x.startswith("part-"), file_list))[0]
         files.rename_file("{}/result{}/{}".format(output_path, i+1,json_name),
                         "{}/result-part{}.json".format(output_path, i+1))
         files.remove_dir("{}/result{}".format(output_path, i+1))

@@ -16,10 +16,10 @@
 
 * 執行步驟
   
-  1. Crawler
-    ```bash
-      python lvr-land-crawler-spark/land_data_crawler.py {{Crawler mode}} {{Version}} {{file list}}
-    ```
+  2. Crawler
+      ```bash
+      python land_data_crawler.py {{Crawler mode}} {{Version}} {{file list}}
+      ```
     * Note:
       * Crawler mode
         * curr : 當季
@@ -31,10 +31,10 @@
         * 以`,`分隔
           * ex: `a_lvr_land_a.csv,f_lvr_land_a.csv`
 
-  2. Spark
-    ```bash
-      spark-submit --py-files lvr-land-crawler-spark/dependency.zip lvr-land-crawler-spark/land_data_etl.py
-    ```
+  3. Spark
+      ```bash
+      spark-submit --py-files dependency.zip land_data_etl.py
+      ```
 
 * 若於`local`執行且`local`未有Spark環境，請加上
   ```python
@@ -48,4 +48,16 @@
     cd lvr-land-crawler-spark
     sudo zip dependency.zip tools/*
     ```
-
+* Pipenv
+  1. Install
+      ```bash
+      PIPENV_VENV_IN_PROJECT=1 pipenv install
+      ```
+  2. Crawler
+      ```bash
+      pipenv run python land_data_crawler {{Crawler mode}} {{Version}} {{file list}}
+      ```
+  3. Spark
+        ```bash
+        export PYSPARK_PYTHON=.venv/bin/python; export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64; spark-submit --py-files dependency.zip land_data_etl.py
+        ```

@@ -91,8 +91,10 @@ class LandData(object):
             files.create_dir(input_path)
 
         for i in self.file_list:
-            self.add_city_col(i, "{}/{}".format(upzip_target_dir, i), 
-                        "{}/input/{}".format(_BASE_PATH,i))
+            files.copy_file("{}/{}".format(upzip_target_dir, i),"{}/input/{}".format(_BASE_PATH,i))
+
+        # file city mapping
+        files.copy_file("{}/{}".format(upzip_target_dir, "manifest.csv"),"{}/input/{}".format(_BASE_PATH,"manifest.csv"))
 
 def main(argv):
     crawler_mode = ""
@@ -126,7 +128,6 @@ def main(argv):
         print(crawler_mode)
         land_data.get_land_datafeed(pub_date=pub_date)
 
-    land_data.get_file_city()
     land_data.move_files(upzip_target_dir="land_data/lvr_landcsv")
 
 if __name__ == '__main__':

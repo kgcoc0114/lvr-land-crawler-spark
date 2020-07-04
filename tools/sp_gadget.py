@@ -4,9 +4,20 @@ Name: tools/sp_gadget.py
 Desc: spark functions
 Note:
 """
+import sys
+import os
+import tools.files as files
+import tools.times as times
+
+from pyspark.sql.types import *
+from pyspark import SparkContext
+from pyspark.sql import SQLContext
+from pyspark.sql import DataFrame
 from pyspark.rdd import RDD
 import pyspark.sql.functions as F
-import tools.files as files
+
+from functools import reduce
+
 
 # 中文數字轉換
 def number_trans(ch_num):
@@ -29,6 +40,49 @@ def number_trans(ch_num):
         return num
     else:
         return 0
+
+# ------ spark rdd ------
+def rdd_events_trans(x):
+    tmp_list = []
+    for i in x:
+        tmp_dict = {}
+        tmp_dict['district'] = i[2]
+        tmp_dict['building_state'] = i[3]
+        tmp_list.append(tmp_dict)
+    return tmp_list
+
+def rdd_time_slots_trans(x):
+    tmp_list = []
+    for i in x:
+        tmp_dict = {}
+        tmp_dict['date'] = i[1]
+        tmp_dict['events'] = i[2]
+        tmp_list.append(tmp_dict)
+    return tmp_list
+# ------ spark rdd ------
+
+# ------ spark dataframe ------
+# 讀檔
+def sdf_read_file_spark(sqlc, file_path, schema):
+    sdf = sqlc.read.format('com.databricks.spark.csv').options(header='False', inferschema='False').schema(schema).load(file_path)
+    return sdf
+
+# 格式轉換-中文樓層轉換, 日期轉換
+def sdf_trans(sdf):
+    floor_trims = F.udf(number_trans, IntegerType())
+    str2date = F.udf(times.dt2AD_dt, DateType())
+    sdf = sdf.withColumn("total_floor_trans", floor_trims("total_floor"))
+    sdf = sdf.withColumn("date", str2date("trans_date"))
+    sdf_final = sdf.filter("district is not NULL")
+    return sdf_final
+
+# 合併dataframe
+def sdf_union(*sdf):
+    return reduce(DataFrame.unionAll, *sdf)
+
+# 條件篩選
+def sdf_filter(sdf, conditions):
+    return sdf.filter(conditions)
 
 # 結果json schema
 def result_json_schema(sdf, distinct_judge=False):
@@ -63,7 +117,9 @@ def result_json_schema(sdf, distinct_judge=False):
         F.collect_list("time_slots").alias("time_slots")
     )
     return sdf
+# ------ spark dataframe ------
 
+# ------ export result ------
 # 生成output資料夾
 def create_result_dir(output_path):
     if files.exist_or_not(output_path):
@@ -92,4 +148,103 @@ def trans_result(output_path, output_file_num):
         files.rename_file("{}/result{}/{}".format(output_path, i+1,json_name),
                         "{}/result-part{}.json".format(output_path, i+1))
         files.remove_dir("{}/result{}".format(output_path, i+1))
+# ------ export result ------
 
+def get_data(spark, ld):
+    import json
+    result = None
+    if ld.mode == 'DF':
+        sdf_list =[]
+        for file in ld.file_list:
+            input_data = "file:///{}/input/{}".format(ld.proj_root, file)
+            sdf = sdf_read_file_spark(spark, input_data, ld.data_schema)
+            # add file city
+            sdf = sdf.withColumn('city', F.lit(ld.get_file_city(file)))
+            sdf_list.append(sdf)
+        
+        # 合併dataframe
+        sdf = sdf_union(sdf_list)
+        return sdf
+    
+    else:
+        for file in ld.file_list:
+            tmp_rdd = spark.textFile("file:///{}/input/{}".format(ld.proj_root, file))
+            # add file city
+            file_city = ld.get_file_city(file)
+            tmp_rdd = tmp_rdd.map(lambda row: file_city + "," + row)
+            # exclude header
+            junk = tmp_rdd.take(2)
+            tmp_rdd = tmp_rdd.filter(lambda row: row not in junk).map(lambda line: line.split(","))
+            # header for getting index
+            if not ld.header:
+                ld.get_header(junk)
+            if not result:
+                result = tmp_rdd
+            else:
+                # union files
+                result = result.union(tmp_rdd)
+
+        return result
+                
+def analyze(result, mode, header=None):
+    if mode == "DF":       
+        # 格式處理
+        result = sdf_trans(result)
+        # 條件篩選
+        result = sdf_filter(result, u"main_use ='住家用' AND building_state like '住宅大樓%' and total_floor_trans >= 13")
+        # 匯出json
+        result = result_json_schema(result)
+    else:
+        result = result.filter(lambda row : number_trans(
+                            row[header.index(u"總樓層數")].split(u"層")[0]) >= 13\
+                            and u"住宅大樓" in row[header.index(u"建物型態")] \
+                            and u"住家用" in row[header.index(u"主要用途")])
+    
+        result = result.map(lambda row: (row[header.index(u"縣市")], 
+                            times.dt2AD(row[header.index(u"交易年月日")]), 
+                            row[header.index(u"鄉鎮市區")], 
+                            row[header.index(u"建物型態")]))
+        import json
+        # (city, date)
+        result = result.groupBy(lambda x: (x[0], x[1])).map(lambda x : (x[0], list(x[1])))
+        # city, date, events
+        result = result.map(lambda x : (x[0][0],x[0][1], rdd_events_trans(x[1]))).sortBy(lambda x: x[1])
+        # sortBy date
+        result = result.sortBy(lambda x: x[1])
+        # city
+        result = result.groupBy(lambda x: x[0]).map(lambda x : (x[0], list(x[1])))
+        result = result.map(lambda x : json.dumps({'city':x[0], 'time_slots':rdd_time_slots_trans(x[1])}, ensure_ascii=False))
+    
+    return result
+
+
+def export_result(result, spark_path, output_path, output_file_num):
+    # 匯出檔案
+    output_path="/{}/output".format(spark_path)
+    # 生成output資料夾
+    create_result_dir(output_path)
+    # 匯出檔案
+    export_results(result, "file://{}".format(output_path), output_file_num)
+    # 改檔名
+    trans_result(output_path, output_file_num)
+
+
+class LvrData(object):
+    proj_root = '/'.join(os.path.abspath(__file__).replace('\\','/').split('/')[1:-2])
+    file_list =  files.get_all_files("/{}/input/".format(proj_root)).remove("manifest.csv")
+    mode = None
+    header = None
+    city_mapping = None
+    data_schema = None
+
+    def get_city_map(self, sc):
+        city_mapping = sc.textFile("file:///{}/input/manifest.csv".format(self.proj_root))
+        self.city_mapping = city_mapping.map(lambda line: line.split(","))
+    
+    def get_header(self, junk):
+        self.header = junk[0].split(",")[1:]
+        self.header.insert(0, u"縣市")
+    
+    def get_file_city(self, file_name):
+        city_result = self.city_mapping.filter(lambda row: row[0] == file_name).collect()
+        return city_result[0][2][0:3]

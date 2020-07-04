@@ -27,6 +27,7 @@ def main():
 
     # lvr data params
     ld = sp_gadget.LvrData()
+    ld.init(_SPARK_PATH)
     ld.mode = 'DF'
     # get file desc
     ld.get_city_map(sc)
@@ -68,7 +69,7 @@ def main():
     # set output folder
     output_path="/{}/output".format(_SPARK_PATH)
     # export result
-    # sp_gadget.export_result(result_df, _SPARK_PATH, output_path, _OUTPUT_FILE_NUM)
+    sp_gadget.export_result(result_df, _SPARK_PATH, output_path, _OUTPUT_FILE_NUM)
 
 if __name__ == '__main__':
     main()

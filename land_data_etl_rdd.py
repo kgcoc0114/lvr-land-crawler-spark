@@ -22,6 +22,7 @@ def main():
     sc = SparkContext()
     # lvr data params
     ld = sp_gadget.LvrData()
+    ld.init(_SPARK_PATH)
     ld.mode = "RDD"
     # get file desc
     ld.get_city_map(sc)

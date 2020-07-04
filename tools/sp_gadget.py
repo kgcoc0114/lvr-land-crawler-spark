@@ -230,12 +230,17 @@ def export_result(result, spark_path, output_path, output_file_num):
 
 
 class LvrData(object):
-    proj_root = '/'.join(os.path.abspath(__file__).replace('\\','/').split('/')[1:-2])
-    file_list =  files.get_all_files("/{}/input/".format(proj_root)).remove("manifest.csv")
+    proj_root = None
+    file_list = None
     mode = None
     header = None
     city_mapping = None
     data_schema = None
+
+    def init(self, spark_path):
+        self.proj_root = spark_path
+        self.file_list = files.get_all_files("/{}/input/".format(self.proj_root))
+        self.file_list.remove("manifest.csv")
 
     def get_city_map(self, sc):
         city_mapping = sc.textFile("file:///{}/input/manifest.csv".format(self.proj_root))
